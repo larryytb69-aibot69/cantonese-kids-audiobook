@@ -1,32 +1,57 @@
-name: Generate Cantonese Audiobooks MP3
+name: Build MP3 Base64 CSV for Drive Import
 
 on:
   workflow_dispatch:
   push:
     paths:
-      - 'generate_cantonese_audiobooks_mp3.py'
       - '.github/workflows/generate_audiobooks.yml'
 
 permissions:
   contents: write
 
 jobs:
-  build-audiobooks:
+  export-csv:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: pip install edge-tts
-      - run: python3 generate_cantonese_audiobooks_mp3.py
-      - uses: actions/upload-artifact@v4
-        with:
-          name: cantonese-audiobooks-mp3
-          path: 廣東話有聲書_MP3輸出/*.mp3
-      - run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add 廣東話有聲書_MP3輸出/*.mp3
-          git diff --staged --quiet || git commit -m "Add generated Cantonese MP3 audiobooks"
+      - name: Convert MP3s to Base64 CSV files
+        run: |
+          python3 - << 'PY'
+          import base64, csv, glob, os, subprocess
+
+          files = sorted(glob.glob("廣東話有聲書_MP3輸出/*.mp3"))
+          if not files:
+              subprocess.run(["pip", "install", "edge-tts"], check=True)
+              subprocess.run(["python3", "generate_cantonese_audiobooks_mp3.py"], check=True)
+              files = sorted(glob.glob("廣東話有聲書_MP3輸出/*.mp3"))
+
+          rows_1 = [["filename", "part_idx", "b64_data"]]
+          rows_2 = [["filename", "part_idx", "b64_data"]]
+
+          for idx_f, f in enumerate(files):
+              out_f = f + ".opt.mp3"
+              subprocess.run(["ffmpeg", "-y", "-i", f, "-ac", "1", "-ar", "16000", "-b:a", "16k", out_f], check=True)
+              with open(out_f, "rb") as fp:
+                  b64 = base64.b64encode(fp.read()).decode("ascii")
+              fname = os.path.basename(f)
+              chunk_size = 35000
+              chunks = [b64[i:i+chunk_size] for i in range(0, len(b64), chunk_size)]
+              target = rows_1 if idx_f < 5 else rows_2
+              for c_idx, ch in enumerate(chunks):
+                  target.append([fname, str(c_idx), "B64:" + ch])
+
+          with open("mp3_b64_1.csv", "w", newline="", encoding="utf-8") as fp:
+              csv.writer(fp).writerows(rows_1)
+          with open("mp3_b64_2.csv", "w", newline="", encoding="utf-8") as fp:
+              csv.writer(fp).writerows(rows_2)
+          PY
+      - name: Commit CSV files
+        run: |
+          git config user.name "actions-bot"
+          git config user.email "actions-bot"
+          git add mp3_b64_1.csv mp3_b64_2.csv
+          git diff --staged --quiet || git commit -m "Add MP3 base64 CSV files"
           git push
