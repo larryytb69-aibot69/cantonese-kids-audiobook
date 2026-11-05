@@ -1,0 +1,32 @@
+name: Generate Cantonese Audiobooks MP3
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'generate_cantonese_audiobooks_mp3.py'
+      - '.github/workflows/generate_audiobooks.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  build-audiobooks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install edge-tts
+      - run: python3 generate_cantonese_audiobooks_mp3.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cantonese-audiobooks-mp3
+          path: 廣東話有聲書_MP3輸出/*.mp3
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add 廣東話有聲書_MP3輸出/*.mp3
+          git diff --staged --quiet || git commit -m "Add generated Cantonese MP3 audiobooks"
+          git push
