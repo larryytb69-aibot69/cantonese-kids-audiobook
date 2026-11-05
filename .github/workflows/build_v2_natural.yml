@@ -33,26 +33,4 @@ jobs:
           git push'
       
 
-permissions:
-  contents: write
-
-jobs:
-  build-v2:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - run: pip install edge-tts
-      - run: python3 generate_cantonese_audiobooks_v2.py
-      - uses: actions/upload-artifact@v4
-        with:
-          name: cantonese-audiobooks-v2-natural-mp3
-          path: 廣東話有聲書_MP3輸出/*.mp3
-      - run: |
-          git config user.name "actions-bot"
-          git config user.email "actions-bot"
-          git add 廣東話有聲書_MP3輸出/*.mp3
-          git diff --staged --quiet || git commit -m "Upgrade to v2 natural dual-speaker Cantonese MP3 audiobooks"
-          git push
+permis
